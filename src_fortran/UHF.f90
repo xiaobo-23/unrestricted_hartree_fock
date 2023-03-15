@@ -686,21 +686,21 @@ program IHF
             end do
       end if
 
-      do i=1,N
-          newnup(i) = relax*newnup(i) + (1.d0-relax)*nup(i)
-          newndn(i) = relax*newndn(i) + (1.d0-relax)*ndn(i)
-          Hup(i,i) = Hup(i,i) + U * ( newndn(i) - ndn(i) )
-          Hdn(i,i) = Hdn(i,i) + U * ( newnup(i) - nup(i) )
-          nup(i) = newnup(i)
-          ndn(i) = newndn(i)
-      end do
+      ! do i=1,N
+      !     newnup(i) = relax*newnup(i) + (1.d0-relax)*nup(i)
+      !     newndn(i) = relax*newndn(i) + (1.d0-relax)*ndn(i)
+      !     Hup(i,i) = Hup(i,i) + U * ( newndn(i) - ndn(i) )
+      !     Hdn(i,i) = Hdn(i,i) + U * ( newnup(i) - nup(i) )
+      !     nup(i) = newnup(i)
+      !     ndn(i) = newndn(i)
+      ! end do
       
-      rho_relaxed=0.d0
-      do i = 1, N
-        rho_relaxed = rho_relaxed + nup(i) + ndn(i)
-      end do
-      rho_relaxed = rho_relaxed / dble(N)
-      write(71, "(i6, f12.6)") it, rho_relaxed
+      ! rho_relaxed=0.d0
+      ! do i = 1, N
+      !   rho_relaxed = rho_relaxed + nup(i) + ndn(i)
+      ! end do
+      ! rho_relaxed = rho_relaxed / dble(N)
+      ! write(71, "(i6, f12.6)") it, rho_relaxed
 
 ! **********************************************************************
 !     Compute the grand free energy
@@ -1044,4 +1044,28 @@ contains
           enddo
       end subroutine chemical_potential_tuning
 
+      subroutine density_mixture(tmp_Nsites, tmp_nup, tmp_ndn, tmp_newnup, tmp_newndn, tmp_U, tmp_Hup, tmp_Hdn, tmp_relax)
+            integer, intent(in) :: tmp_Nsites
+            real(kind=precision), intent(in) :: tmp_U, tmp_relax
+            real(kind=precision), intent(in) :: tmp_nup(tmp_Nsites), tmp_ndn(tmp_Nsites)
+            real(kind=precision), intent(in) :: tmp_newnup(tmp_Nsites), tmp_newndn(tmp_Nsites)
+            real(kind=precision), intent(out) :: tmp_Hup(tmp_Nsites, tmp_Nsites), tmp_Udn(tmp_Nsites, tmp_Nsites)
+
+            integer :: ind
+            do i=1,N
+          newnup(i) = relax*newnup(i) + (1.d0-relax)*nup(i)
+          newndn(i) = relax*newndn(i) + (1.d0-relax)*ndn(i)
+          Hup(i,i) = Hup(i,i) + U * ( newndn(i) - ndn(i) )
+          Hdn(i,i) = Hdn(i,i) + U * ( newnup(i) - nup(i) )
+          nup(i) = newnup(i)
+          ndn(i) = newndn(i)
+      end do
+      
+      rho_relaxed=0.d0
+      do i = 1, N
+        rho_relaxed = rho_relaxed + nup(i) + ndn(i)
+      end do
+      rho_relaxed = rho_relaxed / dble(N)
+      write(71, "(i6, f12.6)") it, rho_relaxed
+      end subroutine density_mixture
 end program IHF
