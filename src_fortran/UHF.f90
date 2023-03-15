@@ -61,8 +61,7 @@ program IHF
 !*****************************************************************
 !    Add declarations for the chemical tuning part
 !*****************************************************************
-      real(kind=precision), parameter :: mu_min = -10d0
-      real(kind=precision), parameter :: mu_max = 10d0
+      real(kind=precision) :: mu_min, mu_max
       real(kind=precision) :: mu_delta
       real(kind=precision) :: rho_delta
       real(kind=precision) :: rho_tmp
@@ -299,7 +298,7 @@ program IHF
           enddo
 
           call compute_energy(it, N, beta, mu, U, nup, ndn, evalup, evaldn, E)
-          call compute_density(N, beta, mu, U, evalup, evaldn, evecup, evecdn, nup, ndn, newnup, newndn)
+          call compute_density(N, beta, mu, evalup, evaldn, evecup, evecdn, newnup, newndn)
 
           write (68, "('it, E/N = ', i6, f16.8)") it, E
           totalE(it, index) = E
@@ -312,8 +311,24 @@ program IHF
               enddo
           end if
  
-      
 
+          mu_min = -10d0
+          mu_max = 10d0
+          mu_delta = 0d0
+          call chemical_potential_tuning(mu_min, mu_max, rho, tolerance, N, beta, mu, evalup, evaldn,& 
+            evecup, evecdn, mu_delta)
+          
+          mu=mu+mu_delta
+          do i = 1, N
+            newnup(i) = 0.d0
+            newndn(i) = 0.d0
+            do j = 1, N
+              fermiup = 1.d0 / ( exp(beta*(evalup(j)-mu)) + 1.d0 )
+              newnup(i) = newnup(i) + fermiup*evecup(i,j)*evecup(i,j)
+              fermidn = 1.d0 / ( exp(beta*(evaldn(j)-mu)) + 1.d0 )
+              newndn(i) = newndn(i) + fermidn*evecdn(i,j)*evecdn(i,j)
+            end do
+          end do
       enddo
 
 
@@ -644,108 +659,108 @@ program IHF
 !******************************************************************
 !     Add the chemical potential tuning part
 !******************************************************************
-      mu_min = -10.0d0
-      mu_max =  10.0d0
-      rho_delta = 1.0d6
+      ! mu_min = -10.0d0
+      ! mu_max =  10.0d0
+      ! rho_delta = 1.0d6
 
-      do while (rho_delta .gt. tolerance)
-        mu_delta=(mu_min+mu_max)/2.0d0
-        rho_tmp=0.0d0
-        do i = 1, N
-          tmpnup(i)=0.0d0
-          tmpndn(i)=0.0d0
-          do j = 1, N
-            fermiup=1.0d0/(exp(beta*(evalup(j)-(mu+mu_delta)))+ 1.0d0)
-            tmpnup(i) = tmpnup(i) + fermiup*evecup(i,j)*evecup(i,j)
-            fermidn=1.0d0/(exp(beta*(evaldn(j)-(mu+mu_delta)))+ 1.0d0)
-            tmpndn(i) = tmpndn(i) + fermidn*evecdn(i,j)*evecdn(i,j)
-          end do
-        end do
+      ! do while (rho_delta .gt. tolerance)
+      !   mu_delta=(mu_min+mu_max)/2.0d0
+      !   rho_tmp=0.0d0
+      !   do i = 1, N
+      !     tmpnup(i)=0.0d0
+      !     tmpndn(i)=0.0d0
+      !     do j = 1, N
+      !       fermiup=1.0d0/(exp(beta*(evalup(j)-(mu+mu_delta)))+ 1.0d0)
+      !       tmpnup(i) = tmpnup(i) + fermiup*evecup(i,j)*evecup(i,j)
+      !       fermidn=1.0d0/(exp(beta*(evaldn(j)-(mu+mu_delta)))+ 1.0d0)
+      !       tmpndn(i) = tmpndn(i) + fermidn*evecdn(i,j)*evecdn(i,j)
+      !     end do
+      !   end do
 
-        do i = 1, N
-          rho_tmp = rho_tmp + tmpnup(i) + tmpndn(i)
-        end do
-        rho_tmp = rho_tmp / dble(N)
-        rho_delta = abs(rho_tmp - rho)
+      !   do i = 1, N
+      !     rho_tmp = rho_tmp + tmpnup(i) + tmpndn(i)
+      !   end do
+      !   rho_tmp = rho_tmp / dble(N)
+      !   rho_delta = abs(rho_tmp - rho)
 
-        if (rho_tmp .gt. rho) then 
-          mu_max = mu_delta
-        else if (rho_tmp < rho) then 
-          mu_min = mu_delta
-        end if
-      end do
+      !   if (rho_tmp .gt. rho) then 
+      !     mu_max = mu_delta
+      !   else if (rho_tmp < rho) then 
+      !     mu_min = mu_delta
+      !   end if
+      ! end do
 
 !***********************************************************************
 !     Tune the electron density based on the new chemical potential
 !***********************************************************************     
-      mu=mu+mu_delta
-      do i = 1, N
-        newnup(i) = 0.d0
-        newndn(i) = 0.d0
-        do j = 1, N
-          fermiup = 1.d0 / ( exp(beta*(evalup(j)-mu)) + 1.d0 )
-          newnup(i) = newnup(i) + fermiup*evecup(i,j)*evecup(i,j)
-          fermidn = 1.d0 / ( exp(beta*(evaldn(j)-mu)) + 1.d0 )
-          newndn(i) = newndn(i) + fermidn*evecdn(i,j)*evecdn(i,j)
-        end do
-      end do
+      ! mu=mu+mu_delta
+      ! do i = 1, N
+      !   newnup(i) = 0.d0
+      !   newndn(i) = 0.d0
+      !   do j = 1, N
+      !     fermiup = 1.d0 / ( exp(beta*(evalup(j)-mu)) + 1.d0 )
+      !     newnup(i) = newnup(i) + fermiup*evecup(i,j)*evecup(i,j)
+      !     fermidn = 1.d0 / ( exp(beta*(evaldn(j)-mu)) + 1.d0 )
+      !     newndn(i) = newndn(i) + fermidn*evecdn(i,j)*evecdn(i,j)
+      !   end do
+      ! end do
 
 !       write(*, *) mu
 !***********************************************************************
 !     Add Perturbation to electron densities
 !***********************************************************************
-      if ((mod(it, 50) .eq. 0) .and. (it .le. 300)) then
-            tmp_total_electrons=0.0d0
-            tmp_shift = 0.0d0
-            tmp1 = 0.0d0
-            tmp2 = 0.0d0
-            do i = 1, N
-                call random_number(tmp1)
-                call random_number(tmp2)
-                tmp1 = 2 * tmp1 - 1.0d0
-                tmp2 = 2 * tmp2 - 1.0d0
-                newnup(i) = newnup(i) + annealing_amp * tmp1
-                newndn(i) = newndn(i) + annealing_amp * tmp2
+      ! if ((mod(it, 50) .eq. 0) .and. (it .le. 300)) then
+      !       tmp_total_electrons=0.0d0
+      !       tmp_shift = 0.0d0
+      !       tmp1 = 0.0d0
+      !       tmp2 = 0.0d0
+      !       do i = 1, N
+      !           call random_number(tmp1)
+      !           call random_number(tmp2)
+      !           tmp1 = 2 * tmp1 - 1.0d0
+      !           tmp2 = 2 * tmp2 - 1.0d0
+      !           newnup(i) = newnup(i) + annealing_amp * tmp1
+      !           newndn(i) = newndn(i) + annealing_amp * tmp2
 
-                if (newnup(i) .gt. 1.0d0) then
-                    newnup(i) = 1.0d0
-                else if (newnup(i) .lt. 0.0d0) then
-                    newnup(i) = 0.0d0
-                end if
+      !           if (newnup(i) .gt. 1.0d0) then
+      !               newnup(i) = 1.0d0
+      !           else if (newnup(i) .lt. 0.0d0) then
+      !               newnup(i) = 0.0d0
+      !           end if
 
-                if (newndn(i) .gt. 1.0d0) then
-                    newndn(i) = 1.0d0
-                else if (newndn(i) .lt. 0.0d0) then
-                    newndn(i) = 0.0d0
-                end if
+      !           if (newndn(i) .gt. 1.0d0) then
+      !               newndn(i) = 1.0d0
+      !           else if (newndn(i) .lt. 0.0d0) then
+      !               newndn(i) = 0.0d0
+      !           end if
 
-                tmp_total_electrons = tmp_total_electrons + newnup(i)
-                tmp_total_electrons = tmp_total_electrons + newndn(i)
-            end do
+      !           tmp_total_electrons = tmp_total_electrons + newnup(i)
+      !           tmp_total_electrons = tmp_total_electrons + newndn(i)
+      !       end do
 
-            tmp_shift = (tmp_total_electrons - N * rho) / N
+      !       tmp_shift = (tmp_total_electrons - N * rho) / N
 
-            do i = 1, N
-                newnup(i) = newnup(i) - tmp_shift
-                newndn(i) = newndn(i) - tmp_shift
-            end do
-      end if
+      !       do i = 1, N
+      !           newnup(i) = newnup(i) - tmp_shift
+      !           newndn(i) = newndn(i) - tmp_shift
+      !       end do
+      ! end if
 
-      do i=1,N
-           newnup(i) = relax*newnup(i) + (1.d0-relax)*nup(i)
-           newndn(i) = relax*newndn(i) + (1.d0-relax)*ndn(i)
-           Hup(i,i) = Hup(i,i) + U * ( newndn(i) - ndn(i) )
-           Hdn(i,i) = Hdn(i,i) + U * ( newnup(i) - nup(i) )
-           nup(i) = newnup(i)
-           ndn(i) = newndn(i)
-      end do
+      ! do i=1,N
+      !     newnup(i) = relax*newnup(i) + (1.d0-relax)*nup(i)
+      !     newndn(i) = relax*newndn(i) + (1.d0-relax)*ndn(i)
+      !     Hup(i,i) = Hup(i,i) + U * ( newndn(i) - ndn(i) )
+      !     Hdn(i,i) = Hdn(i,i) + U * ( newnup(i) - nup(i) )
+      !     nup(i) = newnup(i)
+      !     ndn(i) = newndn(i)
+      ! end do
       
-      rho_relaxed=0.d0
-      do i = 1, N
-        rho_relaxed = rho_relaxed + nup(i) + ndn(i)
-      end do
-      rho_relaxed = rho_relaxed / dble(N)
-      write(71, "(i6, f12.6)") it, rho_relaxed
+      ! rho_relaxed=0.d0
+      ! do i = 1, N
+      !   rho_relaxed = rho_relaxed + nup(i) + ndn(i)
+      ! end do
+      ! rho_relaxed = rho_relaxed / dble(N)
+      ! write(71, "(i6, f12.6)") it, rho_relaxed
 
 ! ! **********************************************************************
 ! !     Compute the grand free energy
@@ -1024,11 +1039,10 @@ contains
 
 
       ! Compute the electron density based on the eigenvalues and eigenvectors
-      subroutine compute_density(tmp_Nsites, tmp_beta, tmp_mu, tmp_U,& 
-        tmp_evalup, tmp_evaldn, tmp_evecup, tmp_evecdn, tmp_nup, tmp_ndn, tmp_newnup, tmp_newndn)
+      subroutine compute_density(tmp_Nsites, tmp_beta, tmp_mu,& 
+        tmp_evalup, tmp_evaldn, tmp_evecup, tmp_evecdn, tmp_newnup, tmp_newndn)
           integer, intent(in) :: tmp_Nsites
-          real(kind=precision), intent(in) :: tmp_beta, tmp_mu, tmp_U
-          real(kind=precision), intent(in) :: tmp_nup(tmp_Nsites), tmp_ndn(tmp_Nsites)
+          real(kind=precision), intent(in) :: tmp_beta, tmp_mu
           real(kind=precision), intent(in) :: tmp_evalup(tmp_Nsites), tmp_evaldn(tmp_Nsites)
           real(kind=precision), intent(in) :: tmp_evecup(tmp_Nsites, tmp_Nsites), tmp_evecdn(tmp_Nsites, tmp_Nsites)
           real(kind=precision), intent(out) :: tmp_newnup(tmp_Nsites), tmp_newndn(tmp_Nsites)
@@ -1049,4 +1063,44 @@ contains
               enddo
           enddo
       end subroutine compute_density
+
+
+
+      ! Tune the chemical potential 
+      subroutine chemical_potential_tuning(lower_bound, upper_bound, target_density,& 
+        tmp_tolerance, tmp_Nsites, tmp_beta, tmp_mu,& 
+        tmp_evalup, tmp_evaldn, tmp_evecup, tmp_evecdn, tmp_delta_mu)
+          integer, intent(in) :: tmp_Nsites
+          real(kind=precision), intent(in) :: tmp_tolerance, target_density
+          real(kind=precision), intent(in) :: tmp_beta, tmp_mu
+          real(kind=precision), intent(in) :: tmp_evalup(tmp_Nsites), tmp_evaldn(tmp_Nsites)
+          real(kind=precision), intent(in) :: tmp_evecup(tmp_Nsites, tmp_Nsites), tmp_evecdn(tmp_Nsites, tmp_Nsites)
+          real(kind=precision), intent(out) :: lower_bound, upper_bound, tmp_delta_mu
+          real(kind=precision) :: density_diff, tmp_density
+          real(kind=precision) :: tmp_nup(tmp_Nsites), tmp_ndn(tmp_Nsites)
+          integer :: ind
+
+          density_diff = 1.0d6
+          do while (density_diff > tmp_tolerance)
+              tmp_delta_mu = 0.5d0 * (lower_bound + upper_bound)
+              tmp_density = 0.d0
+
+              call compute_density(tmp_Nsites, tmp_beta, tmp_mu + tmp_delta_mu,& 
+                tmp_evalup, tmp_evaldn, tmp_evecup, tmp_evecdn, tmp_nup, tmp_ndn)
+
+              do ind = 1, tmp_Nsites
+                  tmp_density = tmp_density + tmp_nup(ind) + tmp_ndn(ind)
+              enddo
+
+              tmp_density = tmp_density / dfloat(tmp_Nsites)
+              density_diff = abs(tmp_density - target_density)
+              
+              if (tmp_density > target_density) then
+                  upper_bound = tmp_delta_mu
+              else if (tmp_density < target_density) then
+                  lower_bound = tmp_delta_mu
+              end if
+          enddo
+      end subroutine chemical_potential_tuning
+
 end program IHF
