@@ -319,6 +319,8 @@ program IHF
             evecup, evecdn, mu_delta)
           mu = mu + mu_delta
           call compute_density(N, beta, mu, evalup, evaldn, evecup, evecdn, newnup, newndn)
+          call density_mixture(N, relax, U, it, nup, ndn, newnup, newndn, Hup, Hdn)
+
       enddo
 
 
@@ -686,22 +688,6 @@ program IHF
             end do
       end if
 
-      ! do i=1,N
-      !     newnup(i) = relax*newnup(i) + (1.d0-relax)*nup(i)
-      !     newndn(i) = relax*newndn(i) + (1.d0-relax)*ndn(i)
-      !     Hup(i,i) = Hup(i,i) + U * ( newndn(i) - ndn(i) )
-      !     Hdn(i,i) = Hdn(i,i) + U * ( newnup(i) - nup(i) )
-      !     nup(i) = newnup(i)
-      !     ndn(i) = newndn(i)
-      ! end do
-      
-      ! rho_relaxed=0.d0
-      ! do i = 1, N
-      !   rho_relaxed = rho_relaxed + nup(i) + ndn(i)
-      ! end do
-      ! rho_relaxed = rho_relaxed / dble(N)
-      ! write(71, "(i6, f12.6)") it, rho_relaxed
-
 ! **********************************************************************
 !     Compute the grand free energy
 ! **********************************************************************
@@ -1044,7 +1030,11 @@ contains
           enddo
       end subroutine chemical_potential_tuning
 
-      subroutine density_mixture(tmp_Nsites, tmp_nup, tmp_ndn, tmp_newnup, tmp_newndn, tmp_U, tmp_Hup, tmp_Hdn, tmp_relax)
+      
+
+      ! Mix the spin-resolved electron densities at step j and j-1 with mixing factor alpha
+      subroutine density_mixture(tmp_Nsites, tmp_relax, tmp_U, tmp_index, tmp_nup, tmp_ndn,&
+       tmp_newnup, tmp_newndn, tmp_Hup, tmp_Hdn)
             integer, intent(in) :: tmp_Nsites
             real(kind=precision), intent(in) :: tmp_U, tmp_relax
             real(kind=precision), intent(in) :: tmp_nup(tmp_Nsites), tmp_ndn(tmp_Nsites)
@@ -1052,20 +1042,44 @@ contains
             real(kind=precision), intent(out) :: tmp_Hup(tmp_Nsites, tmp_Nsites), tmp_Udn(tmp_Nsites, tmp_Nsites)
 
             integer :: ind
-            do i=1,N
-          newnup(i) = relax*newnup(i) + (1.d0-relax)*nup(i)
-          newndn(i) = relax*newndn(i) + (1.d0-relax)*ndn(i)
-          Hup(i,i) = Hup(i,i) + U * ( newndn(i) - ndn(i) )
-          Hdn(i,i) = Hdn(i,i) + U * ( newnup(i) - nup(i) )
-          nup(i) = newnup(i)
-          ndn(i) = newndn(i)
-      end do
-      
-      rho_relaxed=0.d0
-      do i = 1, N
-        rho_relaxed = rho_relaxed + nup(i) + ndn(i)
-      end do
-      rho_relaxed = rho_relaxed / dble(N)
-      write(71, "(i6, f12.6)") it, rho_relaxed
+            real(kind=precision) :: tmp_rho
+
+            
+            do ind = 1, tmp_Nsites
+                tmp_newnup(ind) = tmp_relax * tmp_newnup(ind) + (1.0d0 - tmp_relax) * tmp_nup(ind)
+                tmp_newndn(ind) = tmp_relax * tmp_newndn(ind) + (1.0d0 - tmp_relax) * tmp_ndn(ind)
+                tmp_Hup(ind, ind) = tmp_Hup(ind, ind) + tmp_U * (tmp_newndn(ind) - tmp_ndn(ind))
+                tmp_Hdn(ind, ind) = tmp_Hdn(ind, ind) + tmp_U * (tmp_newnup(ind) - tmp_nup(ind))
+                tmp_nup(ind) = tmp_newnup(ind)
+                tmp_ndn(ind) = tmp_newndn(ind)
+            enddo
+
+            tmp_rho = 0d0
+            do ind = 1, tmp_Nsites
+                tmp_rho = tmp_rho + tmp_nup(ind) + tmp_ndn(ind)
+            enddo
+            tmp_rho = tmp_rho / dble(tmp_Nsites)
+            print '(i6, f12.6)', tmp_it, tmp_rho
       end subroutine density_mixture
+
+
+      subroutine compute_free_energy(tmp_Nsites, tmp_beta, tmp_mu, tmp_U, tmp_density,&
+       tmp_evalup, tmp_evaldn, tmp_grand_free_energy, tmp_free_energy)
+
+
+            ! **********************************************************************
+!     Compute the grand free energy
+! **********************************************************************
+      Free_Energy = 0.0d0
+      do i = 1, N
+          Free_Energy=Free_Energy+log(1.0d0+exp(-beta*(evalup(i)-mu))) 
+          Free_Energy=Free_Energy+log(1.0d0+exp(-beta*(evaldn(i)-mu)))
+          Free_Energy=Free_Energy+beta*U*nup(i)*ndn(i) 
+      end do 
+      Free_Energy = -1.0d0 / beta * Free_Energy
+
+      totalGF(it,index)=Free_Energy/dfloat(N)
+      totalF(it,index)=Free_Energy/dfloat(N)+mu*rho
+      write(*, *) E/dfloat(N), Free_Energy/dfloat(N)+mu*rho, mu
+      end subroutine compute_free_energy
 end program IHF
