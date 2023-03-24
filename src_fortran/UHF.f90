@@ -1063,23 +1063,29 @@ contains
       end subroutine density_mixture
 
 
+      ! Compute grand free and free energies
       subroutine compute_free_energy(tmp_Nsites, tmp_beta, tmp_mu, tmp_U, tmp_density,&
-       tmp_evalup, tmp_evaldn, tmp_grand_free_energy, tmp_free_energy)
+       tmp_evalup, tmp_evaldn, tmp_nup, tmp_ndn, tmp_grand_free_energy, tmp_free_energy)
+            integer, intent(in) :: tmp_Nsites
+            real(kind=precision), intent(in) :: tmp_beta, tmp_mu, tmp_U, tmp_density
+            real(kind=precision), intent(in) :: tmp_evalup(tmp_Nsites), tmp_evaldn(tmp_Nsites)
+            real(kind=precision), intent(in) :: tmp_nup(tmp_Nsites), tmp_ndn(tmp_Nsites)
+            real(kind=precision), intent(out) :: tmp_grand_free_energy, tmp_free_energy 
 
+            integer :: ind
 
-            ! **********************************************************************
-!     Compute the grand free energy
-! **********************************************************************
-      Free_Energy = 0.0d0
-      do i = 1, N
-          Free_Energy=Free_Energy+log(1.0d0+exp(-beta*(evalup(i)-mu))) 
-          Free_Energy=Free_Energy+log(1.0d0+exp(-beta*(evaldn(i)-mu)))
-          Free_Energy=Free_Energy+beta*U*nup(i)*ndn(i) 
-      end do 
-      Free_Energy = -1.0d0 / beta * Free_Energy
+            tmp_grand_free_energy = 0d0
+            do ind = 1, tmp_Nsites
+                tmp_grand_free_energy = tmp_grand_free_energy +&
+                log(1.0d0 + exp(-tmp_beta * (tmp_evalup(ind) - tmp_mu))) +&
+                log(10.d0 + exp(-tmp_beta * (tmp_evaldn(ind) - tmp_mu)))
+                tmp_grand_free_energy = tmp_grand_free_energy +&
+                tmp_beta * tmp_U * tmp_nup(ind) * tmp_ndn(ind)        
+            enddo
+            tmp_grand_free_energy = -1.0d0 / tmp_beta * tmp_grand_free_energy
+            tmp_grand_free_energy = tmp_grand_free_energy/dfloat(tmp_Nsites)
 
-      totalGF(it,index)=Free_Energy/dfloat(N)
-      totalF(it,index)=Free_Energy/dfloat(N)+mu*rho
-      write(*, *) E/dfloat(N), Free_Energy/dfloat(N)+mu*rho, mu
+            tmp_free_energy = tmp_grand_free_energy + tmp_mu * tmp_density
+            write *, tmp_grand_free_energy, tmp_free_energy
       end subroutine compute_free_energy
 end program IHF
