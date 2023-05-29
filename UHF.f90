@@ -206,7 +206,11 @@ program IHF
 
           call compute_energy(it, N, beta, mu, U, nup, ndn, evalup, evaldn, E)
           call compute_density(N, beta, mu, evalup, evaldn, evecup, evecdn, newnup, newndn)
-          ! print *, evalup, evaldn
+          print *, 'The spin-up electron distribution'
+          print *, newnup
+
+          print *, 'The spin-down electron distribution'
+          print *, newndn
 
           mu_min = -10.0d0
           mu_max =  10.0d0
@@ -215,6 +219,15 @@ program IHF
             evecup, evecdn, mu_delta)
           mu = mu + mu_delta
           call compute_density(N, beta, mu, evalup, evaldn, evecup, evecdn, newnup, newndn)
+
+          print *, 'The correction to the chemical potential'
+          print *, mu_delta
+
+          print *, 'The spin-up electron distribution'
+          print *, newnup
+
+          print *, 'The spin-down electron distribution'
+          print *, newndn
 
 
           ! Write temporary data e.g. energy per site & density histogram in the output file
@@ -238,11 +251,19 @@ program IHF
           !   call annealing(N, rho, annealing_amp, newnup, newndn)
           ! endif
 
-          rho_relaxed = 0.0d0
           ! print *, Hup
           call simple_mixing(N, relax, U, rho_relaxed, Hup, Hdn, nup, ndn, newnup, newndn)
           ! print '(i6, f12.6)', it, rho_relaxed
           ! print *, Hup
+          print *, 'The spin-up electron distribution after using simple mixing'
+          print *, nup
+
+          print *, 'The spin-down electron distribution after using simple mixing'
+          print *, ndn
+
+
+          print *, 'The spin-up matrix after mixing'
+          print *, Hup
       enddo
 
       do i = 1, N
@@ -351,7 +372,6 @@ contains
       
       ! Initialize the spin-up and spin-down electron distributions 
       subroutine initialize_electron_distribution_AFM(tmp_Nx, tmp_Nsites, density, tmp_nup, tmp_ndn)
-
           integer :: index, i, j
           integer, intent(in) :: tmp_Nx, tmp_Nsites
           real(kind=precision), intent(in) :: density
@@ -373,7 +393,6 @@ contains
               end if 
               print '(i6, 2f12.6)', index, tmp_nup(index), tmp_ndn(index) 
           end do
-
       end subroutine initialize_electron_distribution_AFM
 
 
@@ -582,8 +601,8 @@ contains
             do index = 1, tmp_Nsites
                   tmp_newnup(index) = tmp_relax * tmp_newnup(index) + (1.0d0 - tmp_relax) * tmp_nup(index)
                   tmp_newndn(index) = tmp_relax * tmp_newndn(index) + (1.0d0 - tmp_relax) * tmp_ndn(index)
-                  tmp_Hup(index, index) = tmp_Hup(index, index) + tmp_U * (tmp_newnup(index) - tmp_nup(index))
-                  tmp_Hdn(index, index) = tmp_Hdn(index, index) + tmp_U * (tmp_newndn(index) - tmp_ndn(index))
+                  tmp_Hup(index, index) = tmp_Hup(index, index) + tmp_U * (tmp_newndn(index) - tmp_ndn(index))
+                  tmp_Hdn(index, index) = tmp_Hdn(index, index) + tmp_U * (tmp_newnup(index) - tmp_nup(index))
                   tmp_nup(index) = tmp_newnup(index)
                   tmp_ndn(index) = tmp_newndn(index)
                   tmp_rho = tmp_rho + tmp_nup(index) + tmp_ndn(index)
