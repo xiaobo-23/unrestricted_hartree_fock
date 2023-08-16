@@ -6,9 +6,9 @@ program IHF
       ! use iso_fortran_env
 
       integer, parameter :: precision=8
-      integer, parameter :: Nx=4,  Ny=4
+      integer, parameter :: Nx=6,  Ny=6
       integer, parameter :: N = Nx * Ny
-      integer, parameter :: iran=20000
+      integer, parameter ::  iran=20000
 
       
       integer :: ix, iy 
@@ -86,9 +86,9 @@ program IHF
 ! ***********************************************************************
 !      Add effective U bounds and steps
 ! ***********************************************************************
-      real(precision), parameter :: Umin=3.6d0
-      real(precision), parameter :: Umax=3.6d0
-      real(precision), parameter :: Ustep=0.1d0
+      real(precision), parameter :: Umin=2.8d0
+      real(precision), parameter :: Umax=2.8d0
+      real(precision), parameter :: Ustep=0.1d0 
       integer :: Uint, Ufloat
       real(precision) :: U
 ! ***********************************************************************
@@ -120,7 +120,7 @@ program IHF
 !***********************************************************************
 !***********************************************************************
       integer :: it 
-      integer, parameter :: Nit = 500
+      integer, parameter :: Nit = 1000
       real(kind=precision), parameter :: relax = 0.7d0 
       integer :: INFO
       integer, parameter :: N6 = 6 * N
@@ -320,7 +320,6 @@ program IHF
           mu = mu + mu_delta
           call compute_density(N, beta, mu, evalup, evaldn, evecup, evecdn, newnup, newndn)
           call density_mixture(N, relax, U, it, nup, ndn, newnup, newndn, Hup, Hdn)
-
       enddo
 
 
@@ -750,8 +749,7 @@ program IHF
 
       do index=1,number_of_trial_states
         do i=1,N
-          write(69, "(i6, 2f12.6)") i, upElectron(i,index),  
-     1    dnElectron(i,index)
+          write(69, "(i6, 2f12.6)") i, upElectron(i,index), dnElectron(i,index)
         end do
       end do
 
@@ -955,12 +953,10 @@ contains
           do ind = 1, tmp_Nsites
               tmp_fermiup = 1.0d0 / (exp(tmp_beta * (tmp_evalup(ind) - tmp_mu)) + 1.0d0)
               tmp_fermidn = 1.0d0 / (exp(tmp_beta * (tmp_evaldn(ind) - tmp_mu)) + 1.0d0)
-              tmp_energy = tmp_energy + tmp_fermiup + tmp_fermidn
+              tmp_energy = tmp_energy + tmp_fermiup * evalup(ind) + tmp_fermidn * evaldn(ind)
               tmp_energy = tmp_energy - tmp_U * tmp_nup(ind) * tmp_ndn(ind)
           enddo
           print "('iteration, E/N = ', i6, f16.8)", tmp_iteration, tmp_energy / dfloat(tmp_Nsites)
-          ! write (68, "('it, E/N =   ', i8, f16.8)") it, E/dfloat(N)
-          ! totalE(it,index) = E/dfloat(N)
       end subroutine compute_energy
 
 

@@ -5,7 +5,7 @@ program IHF
       implicit none
 
       integer, parameter :: precision=8
-      integer, parameter :: Nx=4,  Ny=4
+      integer, parameter :: Nx=6,  Ny=6
       integer, parameter :: N = Nx * Ny
       integer, parameter :: iran=20000
 
@@ -92,7 +92,7 @@ program IHF
       ! real(precision), parameter :: Umax=3.6d0
       ! real(precision), parameter :: Ustep=0.1d0
       ! integer :: Uint, Ufloat
-      real(precision), parameter :: U=2
+      real(precision), parameter :: U=2.8 
 ! ***********************************************************************
 ! ***********************************************************************
 
@@ -122,7 +122,7 @@ program IHF
 !***********************************************************************
 !***********************************************************************
       integer :: it 
-      integer, parameter :: Nit = 10
+      integer, parameter :: Nit=1000
       real(kind=precision), parameter :: relax = 0.7d0 
       integer :: INFO
       integer, parameter :: N6 = 6 * N
@@ -148,10 +148,9 @@ program IHF
 ! **********************************************************************
 ! **********************************************************************
 
-
-      open(unit=68, status='replace', file='UHF_Data/output.dat')
-      open(unit=69, status='replace', file='UHF_Data/spin_density.dat')
-      open(unit=70, status='replace', file='UHF_Data/free_energy.dat')
+      open(unit=68, status='replace', file='UHF_Data/output_L6.dat')
+      open(unit=69, status='replace', file='UHF_Data/spin_density_L6.dat')
+      open(unit=70, status='replace', file='UHF_Data/free_energy_L6.dat')
 
       !************************************************************************************************************
       !  Construct the non-interacting Hamiltonian
@@ -255,19 +254,19 @@ program IHF
           call simple_mixing(N, relax, U, rho_relaxed, Hup, Hdn, nup, ndn, newnup, newndn)
           ! print '(i6, f12.6)', it, rho_relaxed
           ! print *, Hup
-          print *, 'The spin-up electron distribution after using simple mixing'
-          print *, nup
+          ! print *, 'The spin-up electron distribution after using simple mixing'
+          ! print *, nup
 
-          print *, 'The spin-down electron distribution after using simple mixing'
-          print *, ndn
+          ! print *, 'The spin-down electron distribution after using simple mixing'
+          ! print *, ndn
 
 
-          print *, 'The spin-up matrix after mixing'
-          print *, Hup
+          ! print *, 'The spin-up matrix after mixing'
+          ! print *, Hup
       enddo
 
       do i = 1, N
-            write(69, '(i6, 2f12.6)') i, nup(i), ndn(i)
+          write(69, '(i6, 2f12.6)') i, nup(i), ndn(i)
       enddo
 
       close(68)
@@ -456,7 +455,7 @@ contains
           do ind = 1, tmp_Nsites
               tmp_fermiup = 1.0d0 / (exp(tmp_beta * (tmp_evalup(ind) - tmp_mu)) + 1.0d0)
               tmp_fermidn = 1.0d0 / (exp(tmp_beta * (tmp_evaldn(ind) - tmp_mu)) + 1.0d0)
-              tmp_energy = tmp_energy + tmp_fermiup + tmp_fermidn
+              tmp_energy = tmp_energy + tmp_fermiup * tmp_evalup(ind) + tmp_fermidn * tmp_evaldn(ind)
               tmp_energy = tmp_energy - tmp_U * tmp_nup(ind) * tmp_ndn(ind)
           enddo
           ! print "('iteration, E/N = ', i6, f16.8)", tmp_iteration, tmp_energy / dfloat(tmp_Nsites)
