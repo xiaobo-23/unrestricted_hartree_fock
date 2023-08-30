@@ -115,7 +115,7 @@
       implicit none
 
       integer, parameter :: precision=8
-      integer, parameter :: Nx=6,  Ny=6
+      integer, parameter :: Nx=16, Ny=4
       integer, parameter :: N = Nx * Ny
       integer, parameter ::  iran=20000
 !     integer nrot,NP
@@ -186,8 +186,8 @@
 C***********************************************************************
 C     Add temperature bounds and steps
 C***********************************************************************
-      real(precision), parameter :: beta_min=10.0d0
-      real(precision), parameter :: beta_max=10.0d0
+      real(precision), parameter :: beta_min=50.0d0
+      real(precision), parameter :: beta_max=50.0d0
       real(precision), parameter :: beta_step=0.2d0
       integer :: beta_int, beta_float, beta_prev_int, beta_prev_float
       real(precision) :: beta, beta_prev
@@ -232,7 +232,7 @@ C***********************************************************************
 !***********************************************************************
 !***********************************************************************
       integer :: it 
-      integer, parameter :: Nit = 1000
+      integer, parameter :: Nit = 3500
       real(kind=precision), parameter :: relax = 0.7d0 
       integer :: INFO
       integer, parameter :: N6 = 6 * N
@@ -265,7 +265,7 @@ C **********************************************************************
 !     Output files.
 !     Spin density file can be used as CP-QMC input file directly.
 !********************************************************************
-      path='Data/OBC/tprime0/rho0p875/p0/L6/'
+      path='Data/PBC/tprime0/rho0p875/p0/L16W4/'
 
       do tprime = tprime_min, tprime_max, tprime_step
         tprime_int = int(tprime + 1.0d-7)
@@ -684,6 +684,12 @@ C           write(*, "(16f8.3)") (Hdn(i,j), j=1,N)
 C       end do
 !******************************************************************
 !******************************************************************
+      print *, 'The non-interacting spin-up matrix'
+      do i = 1, 5
+        print *, Hup(i, :)
+      enddo   
+
+
 !     INITIALIZE DENSITIES
       write (68, *) ' '
       write (68, *) ' Initial Electron Density '  
@@ -713,6 +719,7 @@ C        end do
             ndn(i) = 1.0d0*rho
         end if
         write (68, "(i6, 2f12.6)") i, nup(i), ndn(i)
+        print '(i6, 2f12.6)', i, nup(i), ndn(i)
       enddo
 !*****************************************************************
 !*****************************************************************
@@ -827,6 +834,12 @@ C **********************************************************************
      1     + (-1)**(j+1) * 0.5d0 * pin_amplitude
       end do
 
+      print *, 'The spin-up matrix'
+      do i = 1, 5
+        print *, Hup(i, :)
+      enddo   
+
+
 !     DBG:  CHECK SYMMETRIC
 
 !      do 180 i=1,N
@@ -927,11 +940,12 @@ C **********************************************************************
               newndn(i) = newndn(i) + fermidn*evecdn(i,j)*evecdn(i,j)
           end do
           
-          if (mod(20*it, Nit).eq.0) then
+          if (mod(50*it, Nit).eq.0) then
               write(68, "(i6, 2f12.6, 2f12.6)")  i, nup(i), newnup(i), 
      1         ndn(i), newndn(i)
           end if
       end do
+
 
       rho1=0d0
       do i = 1, N
@@ -972,7 +986,7 @@ C **********************************************************************
         else if (rho_tmp < rho) then 
           mu_min = mu_delta
         end if
-        print *, rho_delta, tolerance
+C         print *, rho_delta, tolerance
       end do
 
 !***********************************************************************
@@ -1001,7 +1015,7 @@ C       write(*, *) mu
 !***********************************************************************
 !     Add Perturbation to electron densities
 !***********************************************************************
-      if ((mod(it, 50) .eq. 0) .and. (it .le. 300)) then
+      if ((mod(it, 50) .eq. 0) .and. (it .le. 2000)) then
             tmp_total_electrons=0.0d0
             tmp_shift = 0.0d0
             tmp1 = 0.0d0

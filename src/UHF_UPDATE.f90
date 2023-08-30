@@ -6,9 +6,9 @@ program IHF
     implicit none
 
     integer, parameter :: precision=8
-    integer, parameter :: Nx=6,  Ny=6
+    integer, parameter :: Nx=16, Ny=4
     integer, parameter :: N = Nx * Ny
-    integer, parameter :: iran=20000
+    integer, parameter ::  iran=20000
 
       
     ! integer :: ix, iy 
@@ -47,7 +47,7 @@ program IHF
 !     Add pinning field into the code
 !     Add electron density
 !*****************************************************************
-    real(kind=precision), parameter :: pin_amplitude=0.0d0
+    real(kind=precision), parameter :: pin_amplitude=0.2d0
     real(kind=precision), parameter :: annealing_amp=0.7d0
     real(kind=precision), parameter :: rho=0.875d0
     ! real(kind=precision) :: tmp_total_electrons
@@ -75,7 +75,7 @@ program IHF
     ! real(precision), parameter :: beta_step=1.0d0
     ! integer :: beta_int, beta_float, beta_prev_int, beta_prev_float
     ! real(precision) :: beta, beta_prev
-    real(kind=precision), parameter :: beta=10
+    real(kind=precision), parameter :: beta=50
 
 ! ***********************************************************************
 !      Add effective U bounds and steps
@@ -107,7 +107,7 @@ program IHF
     integer, parameter :: number_of_trial_states=1
 
     integer :: it 
-    integer, parameter :: Nit=1000
+    integer, parameter :: Nit=3500
     real(kind=precision), parameter :: relax = 0.7d0 
     integer :: INFO
     integer, parameter :: N6 = 6 * N
@@ -132,20 +132,24 @@ program IHF
     real(kind=precision) :: dnElectron(N, number_of_trial_states)
 
 
-    open(unit=68, status='replace', file='UHF_Data/output_L6.dat')
-    open(unit=69, status='replace', file='UHF_Data/spin_density_L6.dat')
-    open(unit=70, status='replace', file='UHF_Data/free_energy_L6.dat')
+    open(unit=68, status='replace', file='Data/Benchmark/Pinning/L16W4/output.dat')
+    open(unit=69, status='replace', file='Data/Benchmark/Pinning/L16W4/spin_density.dat')
+    open(unit=70, status='replace', file='Data/Benchmark/Pinning/L16W4/free_energy.dat')
 
     !************************************************************************************************************
     !  Construct the non-interacting Hamiltonian
     !************************************************************************************************************
     call set_up_periodic_nearest_neighbor_list(Nx, Ny, N, xplus, xminus, yplus, yminus)
-    call set_up_periodic_hamiltonian(Nx, Ny, N, tx, ty, tprime, xplus, xminus, yplus, yminus, Hup, Hdn)
-    ! print *, Hup(:, 1)
-    ! print *, ""
-    ! print *, Hup(:, 2)
-    ! print *, ""
-    ! print *, Hdn(:, 3)
+    if (pin_amplitude > 1E-8) then
+        call set_up_open_and_periodic_hamiltonian(Nx, Ny, N, tx, ty, tprime, xplus, xminus, yplus, yminus, Hup, Hdn)
+        print *, 'Using spin pinning fields on one edge of the cylinder', pin_amplitude
+    else
+        call set_up_periodic_hamiltonian(Nx, Ny, N, tx, ty, tprime, xplus, xminus, yplus, yminus, Hup, Hdn)
+    end if
+    ! print *, 'The non-interacting spin-up matrix'
+    ! do i = 1, 2
+    !     print *, Hup(i, :)
+    ! enddo    
 
     !************************************************************************************************************
     !  Initialize the distribution of spin-up and spin-down electrons
@@ -159,10 +163,10 @@ program IHF
     !************************************************************************************************************
     ! print *, 'Edge pinning fields'
     call set_up_interaction(Nx, Ny, N, U, pin_amplitude, nup, ndn, Hup, Hdn)
-    !   print *, 'The spin-up matrix'
-    !   do i = 1, N
-    !       print *, Hup(i, :)
-    !   enddo
+    ! print *, 'The spin-up matrix'
+    ! do i = 1, 5
+    !     print *, Hup(i, :)
+    ! enddo
 
     ! Initialize the chemical potential
     mu = 0.0d0
@@ -191,11 +195,10 @@ program IHF
                 evecdn(i,j)=Hdncopy(i,j)
             enddo
         enddo
-
         
         call compute_energy(it, N, beta, mu, U, nup, ndn, evalup, evaldn, E)
         call compute_density(N, beta, mu, evalup, evaldn, evecup, evecdn, newnup, newndn)
-
+        
         mu_min = -10.0d0
         mu_max =  10.0d0
         mu_delta = 0.0d0
@@ -204,8 +207,8 @@ program IHF
         mu = mu + mu_delta
         call compute_density(N, beta, mu, evalup, evaldn, evecup, evecdn, newnup, newndn)
 
-        print *, 'The correction to the chemical potential'
-        print *, mu, mu_delta
+        ! print *, 'The correction to the chemical potential'
+        ! print *, mu, mu_delta
 
     !   print *, 'The spin-up electron distribution'
     !   print *, newnup
@@ -231,11 +234,10 @@ program IHF
         ! print '(i6, f12.6)', it, Free_Energy
 
         ! Add random noise on each site to speed up the convergence
-        if ((mod(it, 50) == 0) .and. (it < 500)) then
+        if ((mod(it, 50) == 0) .and. (it < 2000)) then
             call annealing(N, rho, annealing_amp, newnup, newndn)
         endif
 
-        
         call simple_mixing(N, relax, U, rho_relaxed, Hup, Hdn, nup, ndn, newnup, newndn)
     enddo
 
@@ -259,7 +261,31 @@ contains
         tmp_float = mod(nint(input_number * amplifier), amplifier)
     end subroutine split
 
+
+    ! Set up the neighboring list
+    subroutine set_up_periodic_nearest_neighbor_list(tmp_Nx, tmp_Ny, tmp_Nsites,&
+        tmp_xplus, tmp_xminus, tmp_yplus, tmp_yminus)
+            integer :: ix, iy
+            integer, intent(in) :: tmp_Nx, tmp_Ny, tmp_Nsites
+            integer, intent(out) :: tmp_xplus(tmp_Nsites), tmp_xminus(tmp_Nsites)
+            integer, intent(out) :: tmp_yplus(tmp_Nsites), tmp_yminus(tmp_Nsites)
     
+            do ix = 1, tmp_Nx 
+                tmp_xplus(ix) = ix + 1
+                tmp_xminus(ix) = ix - 1
+            end do
+            tmp_xplus(tmp_Nx) = 1 
+            tmp_xminus(1) = tmp_Nx 
+    
+            do iy = 1, tmp_Ny
+                tmp_yplus(iy) = iy + 1
+                tmp_yminus(iy) = iy - 1
+            end do 
+            tmp_yplus(tmp_Ny) = 1 
+            tmp_yminus(1) = tmp_Ny
+        end subroutine set_up_periodic_nearest_neighbor_list
+
+
     ! Set up the non-interacting part of the Hamilltonian using periodic boundary conditions in both x and y directions
     subroutine set_up_periodic_hamiltonian(tmp_Nx, tmp_Ny, tmp_Nsites, tmp_tx, tmp_ty, tmp_tprime,&
     tmp_xplus, tmp_xminus, tmp_yplus, tmp_yminus, tmp_Hup, tmp_Hdn)
@@ -270,7 +296,6 @@ contains
         integer :: i, j, ix, iy
         integer, intent(in) :: tmp_xplus(tmp_Nsites), tmp_xminus(tmp_Nsites)
         integer, intent(in) :: tmp_yplus(tmp_Nsites), tmp_yminus(tmp_Nsites)
-
 
         do i = 1, N
             do j = 1, N
@@ -320,30 +345,107 @@ contains
     end subroutine set_up_periodic_hamiltonian
 
 
-    ! Set up the neighboring list
-    subroutine set_up_periodic_nearest_neighbor_list(tmp_Nx, tmp_Ny, tmp_Nsites,&
-    tmp_xplus, tmp_xminus, tmp_yplus, tmp_yminus)
-        integer :: ix, iy
-        integer, intent(in) :: tmp_Nx, tmp_Ny, tmp_Nsites
-        integer, intent(out) :: tmp_xplus(tmp_Nsites), tmp_xminus(tmp_Nsites)
-        integer, intent(out) :: tmp_yplus(tmp_Nsites), tmp_yminus(tmp_Nsites)
+    ! Set up the non-interacting part of the Hamilltonian using open boundary condition in the x direction and periodic boundary condition in y direction
+    subroutine set_up_open_and_periodic_hamiltonian(tmp_Nx, tmp_Ny, tmp_Nsites, tmp_tx, tmp_ty, tmp_tprime,&
+        tmp_xplus, tmp_xminus, tmp_yplus, tmp_yminus, tmp_Hup, tmp_Hdn)
+            integer, intent(in) :: tmp_Nx, tmp_Ny, tmp_Nsites
+            real(kind=precision), intent(in) :: tmp_tx, tmp_ty, tmp_tprime
+            real(kind=precision), intent(out) :: tmp_Hup(tmp_Nsites, tmp_Nsites), tmp_Hdn(tmp_Nsites, tmp_Nsites)
+    
+            integer :: i, j, ix, iy
+            integer, intent(in) :: tmp_xplus(tmp_Nsites), tmp_xminus(tmp_Nsites)
+            integer, intent(in) :: tmp_yplus(tmp_Nsites), tmp_yminus(tmp_Nsites)
+    
+            do i = 1, N
+                do j = 1, N
+                tmp_Hup(i, j) = 0.0d0
+                tmp_Hdn(i, j) = 0.0d0
+                end do
+            end do
+    
+            do ix = 1, tmp_Nx
+                do iy = 1, tmp_Ny
+                    if (ix == 1) then
+                        i =  ix + (iy - 1) * tmp_Nx
+                        j =  tmp_xplus(ix) + (iy - 1) * tmp_Nx
+                        tmp_Hup(i,j) = -tmp_tx
+                        tmp_Hdn(i,j) = -tmp_tx
+        
+                        j = ix + (tmp_yplus(iy) - 1) * tmp_Nx
+                        tmp_Hup(i,j) = -tmp_ty
+                        tmp_Hdn(i,j) = -tmp_ty
+        
+                        j = ix + (tmp_yminus(iy) - 1) * tmp_Nx
+                        tmp_Hup(i,j) = -tmp_ty
+                        tmp_Hdn(i,j) = -tmp_ty
+        
+                        jprime = tmp_xplus(ix) + (tmp_yplus(iy) - 1) * tmp_Nx 
+                        tmp_Hup(i,jprime) = -tmp_tprime
+                        tmp_Hdn(i,jprime) = -tmp_tprime
+        
+                        jprime = tmp_xplus(ix) + (tmp_yminus(iy) - 1) * tmp_Nx
+                        tmp_Hup(i,jprime) = -tmp_tprime
+                        tmp_Hdn(i,jprime) = -tmp_tprime
+                    else if (ix == tmp_Nx) then
+                        i =  ix + (iy - 1) * tmp_Nx
+                        j = tmp_xminus(ix) + (iy - 1) * tmp_Nx
+                        tmp_Hup(i,j) = -tmp_tx
+                        tmp_Hdn(i,j) = -tmp_tx
+        
+                        j = ix + (tmp_yplus(iy) - 1) * tmp_Nx
+                        tmp_Hup(i,j) = -tmp_ty
+                        tmp_Hdn(i,j) = -tmp_ty
+        
+                        j = ix + (tmp_yminus(iy) - 1) * tmp_Nx
+                        tmp_Hup(i,j) = -tmp_ty
+                        tmp_Hdn(i,j) = -tmp_ty
+        
+                        jprime = tmp_xminus(ix) + (tmp_yplus(iy) - 1) * tmp_Nx
+                        tmp_Hup(i,jprime) = -tmp_tprime
+                        tmp_Hdn(i,jprime) = -tmp_tprime
+        
+                        jprime = tmp_xminus(ix) + (tmp_yminus(iy) - 1) * tmp_Nx
+                        tmp_Hup(i,jprime) = -tmp_tprime
+                        tmp_Hdn(i,jprime) = -tmp_tprime
+                    else
+                        i =  ix + (iy - 1) * tmp_Nx
+                        j =  tmp_xplus(ix) + (iy - 1) * tmp_Nx
+                        tmp_Hup(i,j) = -tmp_tx
+                        tmp_Hdn(i,j) = -tmp_tx
+        
+                        j = tmp_xminus(ix) + (iy - 1) * tmp_Nx
+                        tmp_Hup(i,j) = -tmp_tx
+                        tmp_Hdn(i,j) = -tmp_tx
+        
+                        j = ix + (tmp_yplus(iy) - 1) * tmp_Nx
+                        tmp_Hup(i,j) = -tmp_ty
+                        tmp_Hdn(i,j) = -tmp_ty
+        
+                        j = ix + (tmp_yminus(iy) - 1) * tmp_Nx
+                        tmp_Hup(i,j) = -tmp_ty
+                        tmp_Hdn(i,j) = -tmp_ty
+        
+                        jprime = tmp_xplus(ix) + (tmp_yplus(iy) - 1) * tmp_Nx 
+                        tmp_Hup(i,jprime) = -tmp_tprime
+                        tmp_Hdn(i,jprime) = -tmp_tprime
+        
+                        jprime = tmp_xminus(ix) + (tmp_yplus(iy) - 1) * tmp_Nx
+                        tmp_Hup(i,jprime) = -tmp_tprime
+                        tmp_Hdn(i,jprime) = -tmp_tprime
+        
+                        jprime = tmp_xminus(ix) + (tmp_yminus(iy) - 1) * tmp_Nx
+                        tmp_Hup(i,jprime) = -tmp_tprime
+                        tmp_Hdn(i,jprime) = -tmp_tprime
+        
+                        jprime = tmp_xplus(ix) + (tmp_yminus(iy) - 1) * tmp_Nx
+                        tmp_Hup(i,jprime) = -tmp_tprime
+                        tmp_Hdn(i,jprime) = -tmp_tprime
+                    end if
+                end do
+            end do
+        end subroutine set_up_open_and_periodic_hamiltonian
 
-        do ix = 1, tmp_Nx 
-            tmp_xplus(ix) = ix + 1
-            tmp_xminus(ix) = ix - 1
-        end do
-        tmp_xplus(tmp_Nx) = 1 
-        tmp_xminus(1) = tmp_Nx 
-
-        do iy = 1, tmp_Ny
-            tmp_yplus(iy) = iy + 1
-            tmp_yminus(iy) = iy - 1
-        end do 
-        tmp_yplus(tmp_Ny) = 1 
-        tmp_yminus(1) = tmp_Ny
-    end subroutine set_up_periodic_nearest_neighbor_list
-
-
+    
     ! Initialize the distribution of spin-up and spin-down electron densities
     subroutine initialize_electron_distribution_AFM(tmp_Nx, tmp_Nsites, density, tmp_nup, tmp_ndn)
         integer :: index, i, j
