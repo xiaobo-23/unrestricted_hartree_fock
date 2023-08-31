@@ -6,10 +6,10 @@ program IHF
     implicit none
     ! Lattice parameters including lattice sizes etc.
     integer, parameter :: precision=8
-    integer, parameter :: Nx=16, Ny=8
+    integer, parameter :: Nx=16, Ny=4
     integer, parameter :: N = Nx * Ny
     integer, parameter ::  iran=20000
-    integer, parameter :: number_of_trial_states=6
+    integer, parameter :: number_of_trial_states=9
       
     ! integer :: ix, iy 
     integer :: xplus(N), xminus(N) 
@@ -28,7 +28,7 @@ program IHF
     ! Electron hopping amplitudes 
     real(kind=precision), parameter :: tx=1.0d0
     real(kind=precision), parameter :: ty=1.0d0
-    real(kind=precision), parameter :: tprime=-0.2d0 
+    real(kind=precision), parameter :: tprime=0.0d0 
     real(kind=precision), parameter :: scale=0.5d0
     
     ! Spin pinning fields which break SU(2) symmetry in the original Hamiltonian
@@ -42,7 +42,7 @@ program IHF
     real(kind=precision), parameter :: tolerance=1.0d-8
 
     real(kind=precision), parameter :: rho=0.875d0
-    real(kind=precision), parameter :: beta=5
+    real(kind=precision), parameter :: beta=50
     real(precision), parameter :: U=2.8 
     
     integer, parameter :: Nit=3500
@@ -55,8 +55,7 @@ program IHF
     integer :: INFO
     integer, parameter :: N6 = 6 * N
     real(kind=precision) :: work(N6)
-
-    
+ 
     ! Store temporary physical observables in the optimization process
     integer :: index
     integer :: trial_index
@@ -66,12 +65,10 @@ program IHF
     real(kind=precision) :: dnElectron(N, number_of_trial_states)
     ! real(kind=precision) :: totalE(Nit, number_of_trial_states)
 
-! **********************************************************************
-! **********************************************************************
-
-    open(unit=68, status='replace', file='Data/Benchmark/Pinning/L16W8/output_tprime-0p2_U2p8_beta5.dat')
-    open(unit=69, status='replace', file='Data/Benchmark/Pinning/L16W8/spin_density_tprime-0p2_U2p8_beta5.dat')
-    open(unit=70, status='replace', file='Data/Benchmark/Pinning/L16W8/free_energy_tprime-0p2_U2p8_beta5.dat')
+    open(unit=68, status='replace', file='Data/Benchmark/Pinning/L16W4/output_tprime0_U2p8_beta50.dat')
+    open(unit=69, status='replace', file='Data/Benchmark/Pinning/L16W4/spin_density_tprime0_U2p8_beta50.dat')
+    open(unit=70, status='replace', file='Data/Benchmark/Pinning/L16W4/spin_density_history_tprime0_U2p8_beta50.dat')
+    open(unit=71, status='replace', file='Data/Benchmark/Pinning/L16W4/free_energy_tprime0_U2p8_beta50.dat')
 
     do trial_index = 1, number_of_trial_states
         !************************************************************************************************************
@@ -87,7 +84,7 @@ program IHF
         ! print *, 'The non-interacting spin-up matrix'
         ! do i = 1, 2
         !     print *, Hup(i, :)
-        ! enddo    
+        ! end do    
 
         !************************************************************************************************************
         !  Initialize the distribution of spin-up and spin-down electrons
@@ -102,27 +99,34 @@ program IHF
         !************************************************************************************************************
         !  Set up the interacting part of the Hamiltonian
         !************************************************************************************************************
-        ! print *, 'Edge pinning fields'
         call set_up_interaction(Nx, Ny, N, U, pin_amplitude, nup, ndn, Hup, Hdn)
         ! print *, 'The spin-up matrix'
         ! do i = 1, 5
         !     print *, Hup(i, :)
-        ! enddo
+        ! end do
 
-        ! Initialize the chemical potential
+        ! Initialize/reset chemical potential and free energy
         mu = 0.0d0
-        write (68, "()") 
-        write (68, "()")
-        write (68, "('# of trial state = ', i6)") trial_index
-        write (68, "()")
-        write (68, "()")
+        Free_Energy = 0.0d0
 
-        write (70, "()") 
-        write (70, "()")
-        write (70, "('# of trial state = ', i6)") trial_index
-        write (70, "()")
-        write (70, "()")
+        write (68, "('*******************************************************************')") 
+        write (68, "('*******************************************************************')")
+        write (68, "('Trial initialization #', i6)") trial_index
+        write (68, "('*******************************************************************')") 
+        write (68, "('*******************************************************************')")
 
+        write (70, "('*******************************************************************')") 
+        write (70, "('*******************************************************************')")
+        write (70, "('Trial initialization #', i6)") trial_index
+        write (70, "('*******************************************************************')") 
+        write (70, "('*******************************************************************')")
+
+        write (71, "('*******************************************************************')") 
+        write (71, "('*******************************************************************')")
+        write (71, "('Trial initialization #', i6)") trial_index
+        write (71, "('*******************************************************************')") 
+        write (71, "('*******************************************************************')")
+        
         !************************************************************************************************************
         !  Solving the Hartree-Fock equations self-consistently
         !************************************************************************************************************
@@ -145,12 +149,14 @@ program IHF
                 do j=1,N
                     evecup(i,j)=Hupcopy(i,j)
                     evecdn(i,j)=Hdncopy(i,j)
-                enddo
-            enddo
+                end do
+            end do
             
-            call compute_energy(it, N, beta, mu, U, nup, ndn, evalup, evaldn, E)
+            ! Compute energy and electron density using Fermi-Dirac distribtion
+            call compute_energy(N, beta, mu, U, nup, ndn, evalup, evaldn, E)
             call compute_density(N, beta, mu, evalup, evaldn, evecup, evecdn, newnup, newndn)
             
+            ! Tune the chemical potential to reach the target density
             mu_min = -10.0d0
             mu_max =  10.0d0
             mu_delta = 0.0d0
@@ -167,12 +173,12 @@ program IHF
                 write (68, "(' iteration =  ', i6)") it
                 do i = 1, N
                     write(68, "(i6, 2f12.6, 2f12.6)") i, nup(i), newnup(i), ndn(i), newndn(i)
-                enddo
+                end do
             end if
             
             ! Compute the free energy per site
             call compute_free_energy(N, beta, mu, rho, U, evalup, evaldn, nup, ndn, Free_Energy)
-            write(70, "('it, F/N=', i6, f16.8)") it, Free_Energy
+            write(71, "('it, F/N=', i6, f16.8)") it, Free_Energy
             ! print '(i6, f12.6)', it, Free_Energy
 
             ! Use annealing to speed up the convergen in the first half of calculation & use simple mixing for every step except for the last step
@@ -180,17 +186,32 @@ program IHF
                 ! Add random noise on each site to speed up the convergence
                 if ((mod(it, 50) == 0) .and. (it < 2000)) then
                     call annealing(N, rho, annealing_amp, newnup, newndn)
-                endif
+                end if
 
                 ! Add simple mixing with a coefficient \alpha
                 call simple_mixing(N, relax, U, rho_relaxed, Hup, Hdn, nup, ndn, newnup, newndn)
             end if 
-        enddo
-    enddo 
+        end do
 
-    do i = 1, N
-        write(69, '(i6, 2f12.6)') i, nup(i), ndn(i)
-    enddo
+        totalF(trial_index) = Free_Energy
+        do index = 1, N
+            upElectron(index, trial_index) = nup(index)
+            dnElectron(index, trial_index) = ndn(index)
+            write(70, '(i6, 2f12.6)') index, nup(index), ndn(index)
+        end do
+
+        write(68, "()")
+        write(70, "()")
+        write(71, "()")
+    end do 
+
+    ! Obtain the optimal index by minimizing the free energy
+    optimal_index = minloc(totalF, DIM=1)
+    print *, totalF
+    print *, 'The optimal index is ', optimal_index
+    do index = 1, N
+        write(69, '(i6, 2f12.6)') index, upElectron(index, optimal_index), dnElectron(index, optimal_index)
+    end do
 
     close(68)
     close(69)
@@ -419,8 +440,6 @@ contains
     end subroutine initialize_electron_distribution_AFM
 
 
-    
-    
     ! Initialize the distribution of spin-up and spin-down electron densities using a stripe pattern
     subroutine initialize_electron_distribution_stripe(tmp_Nx, tmp_Nsites, density, tmp_nup, tmp_ndn, tmp_period)
         integer :: index, i, j, tmp_shift
@@ -443,7 +462,7 @@ contains
                 tmp_nup(index) = 0.0d0 * density
                 tmp_ndn(index) = 1.0d0 * density
             end if 
-            print '(i6, 3f12.6)', index, tmp_nup(index), tmp_ndn(index), 0.5 * (tmp_nup(index) - tmp_ndn(index))
+            print '(i6, 3f12.6)', index, tmp_nup(index), tmp_ndn(index), 0.5 * (-1.0d0)**(i + j) * (tmp_nup(index) - tmp_ndn(index))
         end do
     end subroutine initialize_electron_distribution_stripe
 
@@ -488,15 +507,15 @@ contains
                 output_Hup(i, j) = input_Hup(i, j)
                 output_Hdn(i, j) = input_Hdn(i, j)
                 ! print '(2f12.6)', output_Hup(i,j) - input_Hup(i,j), output_Hdn(i, j) - output_Hdn(i, j)
-            enddo
-        enddo
+            end do
+        end do
     end subroutine generate_matrix_copy
 
     
     ! Compute the total energy using the Fermi-Dirac distribution
-    subroutine compute_energy(tmp_iteration, tmp_Nsites, tmp_beta, tmp_mu, tmp_U,&
+    subroutine compute_energy(tmp_Nsites, tmp_beta, tmp_mu, tmp_U,&
     tmp_nup, tmp_ndn, tmp_evalup, tmp_evaldn, tmp_energy)
-        integer, intent(in) :: tmp_iteration, tmp_Nsites
+        integer, intent(in) :: tmp_Nsites
         real(kind=precision), intent(in) :: tmp_beta, tmp_mu, tmp_U
         real(kind=precision), intent(in) :: tmp_nup(tmp_Nsites), tmp_ndn(tmp_Nsites)
         real(kind=precision), intent(in) :: tmp_evalup(tmp_Nsites), tmp_evaldn(tmp_Nsites)
@@ -511,10 +530,7 @@ contains
             tmp_fermidn = 1.0d0 / (exp(tmp_beta * (tmp_evaldn(ind) - tmp_mu)) + 1.0d0)
             tmp_energy = tmp_energy + tmp_fermiup * tmp_evalup(ind) + tmp_fermidn * tmp_evaldn(ind)
             tmp_energy = tmp_energy - tmp_U * tmp_nup(ind) * tmp_ndn(ind)
-        enddo
-        ! print "('iteration, E/N = ', i6, f16.8)", tmp_iteration, tmp_energy / dfloat(tmp_Nsites)
-        ! write (68, "('it, E/N =   ', i8, f16.8)") it, E/dfloat(N)
-        ! totalE(it,index) = E/dfloat(N)
+        end do
     end subroutine compute_energy
 
 
@@ -540,8 +556,8 @@ contains
 
                 tmp_fermidn = 1.0d0 / (exp(tmp_beta * (tmp_evaldn(ind2) - tmp_mu)) + 1.0d0)
                 tmp_newndn(ind1) = tmp_newndn(ind1) + tmp_fermidn * tmp_evecdn(ind1, ind2) * tmp_evecdn(ind1, ind2)
-            enddo
-        enddo
+            end do
+        end do
     end subroutine compute_density
 
     
@@ -562,7 +578,7 @@ contains
                 tmp_free_energy = tmp_free_energy + log(1.0d0 + exp(-tmp_beta * (tmp_evalup(index) - tmp_mu)))
                 tmp_free_energy = tmp_free_energy + log(1.0d0 + exp(-tmp_beta * (tmp_evaldn(index) - tmp_mu)))
                 tmp_free_energy = tmp_free_energy + tmp_beta * tmp_U * tmp_nup(index) * tmp_ndn(index)
-        enddo
+        end do
         tmp_free_energy = -1.0d0 / tmp_beta * tmp_free_energy
         tmp_free_energy = tmp_free_energy / dfloat(tmp_Nsites) + tmp_mu * tmp_rho
     end subroutine compute_free_energy
@@ -601,12 +617,12 @@ contains
 
                     tmp_fermidn = 1.0d0 / (exp(tmp_beta * (tmp_evaldn(ind2) - (tmp_mu + tmp_delta_mu))) + 1.0d0)
                     tmp_ndn(ind1) = tmp_ndn(ind1) + tmp_fermidn * tmp_evecdn(ind1, ind2) * tmp_evecdn(ind1, ind2)
-                enddo
-            enddo
+                end do
+            end do
 
             do ind = 1, tmp_Nsites
                 tmp_density = tmp_density + tmp_nup(ind) + tmp_ndn(ind)
-            enddo
+            end do
 
             tmp_density = tmp_density / dfloat(tmp_Nsites)
             density_diff = abs(tmp_density - target_density)
@@ -616,8 +632,8 @@ contains
                 upper_bound = tmp_delta_mu
             else if (tmp_density < target_density) then
                 lower_bound = tmp_delta_mu
-            endif
-        enddo
+            end if
+        end do
     end subroutine chemical_potential_tuning
 
     
@@ -646,22 +662,22 @@ contains
                     tmp_newnup(index) = 1.0d0
                 else if (tmp_newnup(index) < 0.0d0) then
                     tmp_newnup(index) = 0.0d0
-                endif 
+                end if 
 
                 if (tmp_newndn(index) > 1.0d0) then
                     tmp_newndn(index) = 1.0d0
                 else if (tmp_newndn(index) < 0.0d0) then
                     tmp_newndn(index) = 0.0d0
-                endif
+                end if
 
                 tmp_total_electrons = tmp_total_electrons + tmp_newnup(index) + tmp_newndn(index)
-        enddo
+        end do
 
         tmp_shift = (tmp_total_electrons - tmp_Nsites * target_density) / tmp_Nsites
         do index = 1, tmp_Nsites
                 tmp_newnup(index) = tmp_newnup(index) - tmp_shift
                 tmp_newndn(index) = tmp_newndn(index) - tmp_shift
-        enddo
+        end do
     end subroutine annealing
 
     
@@ -684,10 +700,8 @@ contains
                 tmp_nup(index) = tmp_newnup(index)
                 tmp_ndn(index) = tmp_newndn(index)
                 tmp_rho = tmp_rho + tmp_nup(index) + tmp_ndn(index)
-        enddo
+        end do
         tmp_rho = tmp_rho / dble(tmp_Nsites)
     end subroutine simple_mixing
-
-
 
 end program IHF
