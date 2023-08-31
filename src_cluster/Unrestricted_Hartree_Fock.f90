@@ -9,7 +9,7 @@ program IHF
     integer, parameter :: Nx=20, Ny=8
     integer, parameter :: N = Nx * Ny
     integer, parameter ::  iran=20000
-    integer, parameter :: number_of_trial_states=9
+    integer, parameter :: number_of_trial_states=6
       
     ! integer :: ix, iy 
     integer :: xplus(N), xminus(N) 
@@ -45,7 +45,7 @@ program IHF
     real(kind=precision), parameter :: beta=2.0
     real(precision), parameter :: U=2.0 
     
-    integer, parameter :: Nit=3500
+    integer, parameter :: Nit=2000
     integer :: it 
 
     ! Speed up convergence using annealing and simple mixing
@@ -60,6 +60,7 @@ program IHF
     integer :: index
     integer :: trial_index
     integer :: optimal_index
+    integer :: trial_wavelength(number_of_trial_states)
     real(kind=precision) :: totalF(number_of_trial_states)
     real(kind=precision) :: upElectron(N, number_of_trial_states) 
     real(kind=precision) :: dnElectron(N, number_of_trial_states)
@@ -70,7 +71,10 @@ program IHF
     open(unit=70, status='replace', file='spin_density_history.dat')
     open(unit=71, status='replace', file='free_energy.dat')
 
+
+    trial_wavelength = (/2, 3, 4, 5, 6, 100/)
     do trial_index = 1, number_of_trial_states
+        print *, trial_wavelength(trial_index)
         !************************************************************************************************************
         !  Construct the non-interacting Hamiltonian
         !************************************************************************************************************
@@ -93,7 +97,7 @@ program IHF
         if (trial_index == number_of_trial_states) then
             call initialize_electron_distribution_AFM(Nx, N, rho, nup, ndn)
         else
-            call initialize_electron_distribution_stripe(Nx, N, rho, nup, ndn, trial_index)
+            call initialize_electron_distribution_stripe(Nx, N, rho, nup, ndn, trial_wavelength(trial_index))
         end if
         
         !************************************************************************************************************
@@ -184,7 +188,7 @@ program IHF
             ! Use annealing to speed up the convergen in the first half of calculation & use simple mixing for every step except for the last step
             if (it /= Nit) then
                 ! Add random noise on each site to speed up the convergence
-                if ((mod(it, 50) == 0) .and. (it < 2000)) then
+                if ((mod(it, 50) == 0) .and. (it <= 1000)) then
                     call annealing(N, rho, annealing_amp, newnup, newndn)
                 end if
 

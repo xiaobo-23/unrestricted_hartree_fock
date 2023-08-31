@@ -8,23 +8,26 @@ import math
 
 def generate_input_file(input_index, task_file):
     '''Generate corresponding folders and input files based on chemical potential'''
+    # Generate names of folders; MacOS version
+    # fractional_part, _ = math.modf(input_index)
     
-    fractional_part, _ = math.modf(input_index)
-    
-    if fractional_part > 1e-8:
-        folder_name = "beta" + "{}".format(input_index) + "/"
-    else:
-        folder_name = "beta" + "{}".format(int(input_index)) + "/"
+    # if fractional_part > 1e-8:
+    #     folder_name = "beta" + "{}".format(input_index) + "/"
+    # else:
+    #     folder_name = "beta" + "{}".format(int(input_index)) + "/"
+
+    # Generate names of folders; Linux version
+    folder_name = "beta" + "{}".format(input_index) + "/"
     task_file.write("cd " + folder_name \
-        + " &&  UHF.o" + " &> UHF_" \
+        + " &&  ./UHF.o" + " &> UHF_" \
         + "{}".format(input_index) + ".log" + "\n")
     
 def main():
     lower_bound=2.0
-    upper_bound=50.1
+    upper_bound=30.1
     sample_list = np.round(np.arange(lower_bound, upper_bound, 0.1), 1)
 
-    submit_file = open("Submission_U2.1", "a")
+    submit_file = open("Submission_U2.0", "a")
     for tmp in sample_list:
         print(tmp)
         generate_input_file(tmp, submit_file)

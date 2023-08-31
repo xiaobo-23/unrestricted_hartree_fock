@@ -1,6 +1,6 @@
 #!/bin/bash
 
-for tmpU in $(seq 2.1  0.1  3.6)
+for tmpU in $(seq 2.5  0.1  3.2)
 do 
     mkdir U$tmpU && cd U$tmpU
     cp ../Generate_disBatch_Input_File.py Generate_disBatch_Input_File.py
@@ -13,7 +13,7 @@ do
     
     python3 Generate_disBatch_Input_File.py
 
-    for tmpBeta in $(seq 2.0  0.1  50.0)
+    for tmpBeta in $(seq 2.0  0.1  30.0)
     do 
         mkdir beta$tmpBeta
         cp ../Unrestricted_Hartree_Fock.f90 beta$tmpBeta/Unrestricted_Hartree_Fock.f90
@@ -21,13 +21,13 @@ do
         cd beta$tmpBeta
             # Linux version
             sed -i "s/U=2.0/U=$tmpU/g" Unrestricted_Hartree_Fock.f90
-            sed -i "s/beta=2.0/beta=$tmpBeta/g" Unrestrcited_Hartree_Fock.f90
+            sed -i "s/beta=2.0/beta=$tmpBeta/g" Unrestricted_Hartree_Fock.f90
             
             # # MacOS version
             # sed -i "" "s/U=2.0/U=$tmpU/g" Unrestricted_Hartree_Fock.f90
             # sed -i "" "s/beta=2.0/beta=$tmpBeta/g" Unrestricted_Hartree_Fock.f90  
         
-            ifort -mkl Unrestricted_Hartree_Fock.f90 -o UHF.o  
+            ifort -qmkl Unrestricted_Hartree_Fock.f90 -o UHF.o  
         cd .. 
     done
 
