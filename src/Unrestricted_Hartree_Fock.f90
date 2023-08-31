@@ -28,7 +28,7 @@ program IHF
     ! Electron hopping amplitudes 
     real(kind=precision), parameter :: tx=1.0d0
     real(kind=precision), parameter :: ty=1.0d0
-    real(kind=precision), parameter :: tprime=0.0d0 
+    real(kind=precision), parameter :: tprime=-0.2d0 
     real(kind=precision), parameter :: scale=0.5d0
     
     ! Spin pinning fields which break SU(2) symmetry in the original Hamiltonian
@@ -65,10 +65,10 @@ program IHF
     real(kind=precision) :: dnElectron(N, number_of_trial_states)
     ! real(kind=precision) :: totalE(Nit, number_of_trial_states)
 
-    open(unit=68, status='replace', file='Data/Benchmark/Pinning/L16W4/output_tprime0_U2p8_beta50.dat')
-    open(unit=69, status='replace', file='Data/Benchmark/Pinning/L16W4/spin_density_tprime0_U2p8_beta50.dat')
-    open(unit=70, status='replace', file='Data/Benchmark/Pinning/L16W4/spin_density_history_tprime0_U2p8_beta50.dat')
-    open(unit=71, status='replace', file='Data/Benchmark/Pinning/L16W4/free_energy_tprime0_U2p8_beta50.dat')
+    open(unit=68, status='replace', file='Data/Benchmark/Pinning/L16W4/output_tprime-0p2_U2p8_beta50.dat')
+    open(unit=69, status='replace', file='Data/Benchmark/Pinning/L16W4/spin_density_tprime-0p2_U2p8_beta50.dat')
+    open(unit=70, status='replace', file='Data/Benchmark/Pinning/L16W4/spin_density_history_tprime-0p2_U2p8_beta50.dat')
+    open(unit=71, status='replace', file='Data/Benchmark/Pinning/L16W4/free_energy_tprime-0p2_U2p8_beta50.dat')
 
     do trial_index = 1, number_of_trial_states
         !************************************************************************************************************
