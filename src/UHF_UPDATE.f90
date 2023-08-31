@@ -4,242 +4,189 @@ program IHF
         
     ! use compute_energy_and_density  
     implicit none
-
+    ! Lattice parameters including lattice sizes etc.
     integer, parameter :: precision=8
-    integer, parameter :: Nx=16, Ny=4
+    integer, parameter :: Nx=16, Ny=8
     integer, parameter :: N = Nx * Ny
     integer, parameter ::  iran=20000
-
+    integer, parameter :: number_of_trial_states=6
       
     ! integer :: ix, iy 
     integer :: xplus(N), xminus(N) 
     integer :: yplus(N), yminus(N)
     integer :: i, j, jprime
-    ! integer :: tmp_i, tmp_j, site
-    ! integer :: tmp
-    ! integer :: tmp_sign, tmp_wave, tmp_loc
     
+    ! Single-particle Hamiltonian, eigenvalues and eignvectors etc.
     real(kind=precision) :: Hup(N,N), evalup(N), evecup(N,N)
     real(kind=precision) :: Hdn(N,N), evaldn(N), evecdn(N,N) 
     real(kind=precision) :: Hupcopy(N,N), Hdncopy(N,N)
-    ! real(kind=precision) :: Huptmp(N,N), Hdntmp(N,N)
     real(kind=precision), dimension(N) :: nup
     real(kind=precision), dimension(N) :: ndn
     real(kind=precision) :: E, Free_Energy
-    ! real(kind=precision) :: fermiup, fermidn 
-    ! real(kind=precision) :: tmp_energy
     real(kind=precision) :: newnup(N), newndn(N)
-    ! real(kind=precision) :: tmpnup(N), tmpndn(N)
 
-    ! real*8 tempup(N,N),checkidup(N,N)
-    ! real*8 tempdn(N,N),checkiddn(N,N)
-
-!******************************************************************
-!     Add next-nearest neighbor hopping into the code
-!******************************************************************
+    ! Electron hopping amplitudes 
     real(kind=precision), parameter :: tx=1.0d0
     real(kind=precision), parameter :: ty=1.0d0
+    real(kind=precision), parameter :: tprime=-0.2d0 
     real(kind=precision), parameter :: scale=0.5d0
+    
+    ! Spin pinning fields which break SU(2) symmetry in the original Hamiltonian
+    real(kind=precision), parameter :: pin_amplitude=0.2d0          
+   
+    ! Tune the chemical potential mu
     real(kind=precision) :: mu
-    ! real(kind=precision) :: ran2
-
-!*****************************************************************
-!     Add pinning field into the code
-!     Add electron density
-!*****************************************************************
-    real(kind=precision), parameter :: pin_amplitude=0.2d0
-    real(kind=precision), parameter :: annealing_amp=0.7d0
-    real(kind=precision), parameter :: rho=0.875d0
-    ! real(kind=precision) :: tmp_total_electrons
-    ! real(kind=precision) :: tmp_shift
-    ! real(kind=precision) :: tmp1, tmp2
-    logical if_pinning_field
-
-
-!*****************************************************************
-!    Add declarations for the chemical tuning part
-!*****************************************************************
     real(kind=precision) :: mu_min, mu_max
     real(kind=precision) :: mu_delta
-    !   real(kind=precision) :: rho_delta
-    !   real(kind=precision) :: rho_tmp
     real(kind=precision) :: rho_relaxed
     real(kind=precision), parameter :: tolerance=1.0d-8
 
-
-!***********************************************************************
-!   Add temperature bounds and steps
-!***********************************************************************
-    ! real(precision), parameter :: beta_min=3.0d0
-    ! real(precision), parameter :: beta_max=3.0d0
-    ! real(precision), parameter :: beta_step=1.0d0
-    ! integer :: beta_int, beta_float, beta_prev_int, beta_prev_float
-    ! real(precision) :: beta, beta_prev
-    real(kind=precision), parameter :: beta=50
-
-! ***********************************************************************
-!      Add effective U bounds and steps
-! ***********************************************************************
-    ! real(precision), parameter :: Umin=3.6d0
-    ! real(precision), parameter :: Umax=3.6d0
-    ! real(precision), parameter :: Ustep=0.1d0
-    ! integer :: Uint, Ufloat
+    real(kind=precision), parameter :: rho=0.875d0
+    real(kind=precision), parameter :: beta=5
     real(precision), parameter :: U=2.8 
-
-!*****************************************************************
-!     Add next nearest-neighbor hopping t' bounds and steps
-!*****************************************************************
-    ! real(precision), parameter :: tprime_min=-0.2d0
-    ! real(precision), parameter :: tprime_max=-0.2d0
-    ! real(precision), parameter :: tprime_step=0.05d0
-    ! integer :: tprime_int, tprime_float
-    real(kind=precision), parameter :: tprime=0.0d0 
-
-!***********************************************************************
-!     Initialize different domain sizes as the starting point of 
-!     Hartree-Fock solution
-!***********************************************************************
-    integer :: phase_shift
-    integer :: domain_size
-    integer :: index
-    integer :: tmpInd
-    integer :: optimal_index
-    integer, parameter :: number_of_trial_states=1
-
-    integer :: it 
+    
     integer, parameter :: Nit=3500
+    integer :: it 
+
+    ! Speed up convergence using annealing and simple mixing
+    real(kind=precision), parameter :: annealing_amp=0.7d0    
     real(kind=precision), parameter :: relax = 0.7d0 
+
     integer :: INFO
     integer, parameter :: N6 = 6 * N
     real(kind=precision) :: work(N6)
-    character(len = :), allocatable :: formatting_string
-    character(len = 100) outname
-    character(len = 100) input_name
-    character(len = 100) spin
-    character(len = 100) free_energy_string
-    character(len = 100) grand_free_energy_string
-    character(len = 100) e_hist
-    character(len = 100) e_density
-    character(len = :), allocatable :: tprime_string
-    character(len = :), allocatable :: tmp_string
 
-! **********************************************************************
-! **********************************************************************
-    real(kind=precision) :: totalE(Nit, number_of_trial_states)
-    real(kind=precision) :: totalF(Nit, number_of_trial_states)
-    real(kind=precision) :: totalGF(Nit, number_of_trial_states)
+    
+    ! Store temporary physical observables in the optimization process
+    integer :: index
+    integer :: trial_index
+    integer :: optimal_index
+    real(kind=precision) :: totalF(number_of_trial_states)
     real(kind=precision) :: upElectron(N, number_of_trial_states) 
     real(kind=precision) :: dnElectron(N, number_of_trial_states)
+    ! real(kind=precision) :: totalE(Nit, number_of_trial_states)
 
+! **********************************************************************
+! **********************************************************************
 
-    open(unit=68, status='replace', file='Data/Benchmark/Pinning/L16W4/output.dat')
-    open(unit=69, status='replace', file='Data/Benchmark/Pinning/L16W4/spin_density.dat')
-    open(unit=70, status='replace', file='Data/Benchmark/Pinning/L16W4/free_energy.dat')
+    open(unit=68, status='replace', file='Data/Benchmark/Pinning/L16W8/output_tprime-0p2_U2p8_beta5.dat')
+    open(unit=69, status='replace', file='Data/Benchmark/Pinning/L16W8/spin_density_tprime-0p2_U2p8_beta5.dat')
+    open(unit=70, status='replace', file='Data/Benchmark/Pinning/L16W8/free_energy_tprime-0p2_U2p8_beta5.dat')
 
-    !************************************************************************************************************
-    !  Construct the non-interacting Hamiltonian
-    !************************************************************************************************************
-    call set_up_periodic_nearest_neighbor_list(Nx, Ny, N, xplus, xminus, yplus, yminus)
-    if (pin_amplitude > 1E-8) then
-        call set_up_open_and_periodic_hamiltonian(Nx, Ny, N, tx, ty, tprime, xplus, xminus, yplus, yminus, Hup, Hdn)
-        print *, 'Using spin pinning fields on one edge of the cylinder', pin_amplitude
-    else
-        call set_up_periodic_hamiltonian(Nx, Ny, N, tx, ty, tprime, xplus, xminus, yplus, yminus, Hup, Hdn)
-    end if
-    ! print *, 'The non-interacting spin-up matrix'
-    ! do i = 1, 2
-    !     print *, Hup(i, :)
-    ! enddo    
+    do trial_index = 1, number_of_trial_states
+        !************************************************************************************************************
+        !  Construct the non-interacting Hamiltonian
+        !************************************************************************************************************
+        call set_up_periodic_nearest_neighbor_list(Nx, Ny, N, xplus, xminus, yplus, yminus)
+        if (pin_amplitude > 1E-8) then
+            call set_up_open_and_periodic_hamiltonian(Nx, Ny, N, tx, ty, tprime, xplus, xminus, yplus, yminus, Hup, Hdn)
+            print *, 'Using spin pinning fields on one edge of the cylinder', pin_amplitude
+        else
+            call set_up_periodic_hamiltonian(Nx, Ny, N, tx, ty, tprime, xplus, xminus, yplus, yminus, Hup, Hdn)
+        end if
+        ! print *, 'The non-interacting spin-up matrix'
+        ! do i = 1, 2
+        !     print *, Hup(i, :)
+        ! enddo    
 
-    !************************************************************************************************************
-    !  Initialize the distribution of spin-up and spin-down electrons
-    !************************************************************************************************************
-    print *, 'Initial electron distribution'
-    call initialize_electron_distribution_AFM(Nx, N, rho, nup, ndn)
-
-      
-    !************************************************************************************************************
-    !  Set up the interacting part of the Hamiltonian
-    !************************************************************************************************************
-    ! print *, 'Edge pinning fields'
-    call set_up_interaction(Nx, Ny, N, U, pin_amplitude, nup, ndn, Hup, Hdn)
-    ! print *, 'The spin-up matrix'
-    ! do i = 1, 5
-    !     print *, Hup(i, :)
-    ! enddo
-
-    ! Initialize the chemical potential
-    mu = 0.0d0
-
-    !************************************************************************************************************
-    !  Solving the Hartree-Fock equations self-consistently
-    !************************************************************************************************************
-    do it = 1, Nit
-        ! print "(' iteration = ', i6)", it
-        INFO = 0
-
-        ! Copy the original Hamiltonian matrix and diagonalize it
-        call generate_matrix_copy(N, Hup, Hdn, Hupcopy, Hdncopy)
-        call DSYEV('V', 'U', N, Hupcopy, N, evalup, WORK, 6*N, INFO)
-        call DSYEV('V', 'U', N, Hdncopy, N, evaldn, WORK, 6*N, INFO)
-        ! print *, 'The eigenvalues of spin-up matrix'
-        ! print *, evalup
-
-        ! print *, 'The eigenvalues of spin-down matrix'
-        ! print *, evaldn
-        
-        ! Obtain the eigenvectors of the original Hamiltonian
-        do i=1,N
-            do j=1,N
-                evecup(i,j)=Hupcopy(i,j)
-                evecdn(i,j)=Hdncopy(i,j)
-            enddo
-        enddo
-        
-        call compute_energy(it, N, beta, mu, U, nup, ndn, evalup, evaldn, E)
-        call compute_density(N, beta, mu, evalup, evaldn, evecup, evecdn, newnup, newndn)
-        
-        mu_min = -10.0d0
-        mu_max =  10.0d0
-        mu_delta = 0.0d0
-        call chemical_potential_tuning(mu_min, mu_max, rho, tolerance, N, beta, mu, evalup, evaldn,& 
-        evecup, evecdn, mu_delta)
-        mu = mu + mu_delta
-        call compute_density(N, beta, mu, evalup, evaldn, evecup, evecdn, newnup, newndn)
-
-        ! print *, 'The correction to the chemical potential'
-        ! print *, mu, mu_delta
-
-    !   print *, 'The spin-up electron distribution'
-    !   print *, newnup
-
-    !   print *, 'The spin-down electron distribution'
-    !   print *, newndn
-
-
-        ! Write temporary data e.g. energy per site & density histogram in the output file
-        write (68, "('it, E/N = ', i6, f16.8)") it, E/dfloat(N)
-        if (mod(50 * it, Nit) == 0) then
-            write (68, "()")
-            write (68, "(' old/new densities up and dn' )")
-            write (68, "(' iteration =  ', i6)") it
-            do i = 1, N
-                write(68, "(i6, 2f12.6, 2f12.6)") i, nup(i), newnup(i), ndn(i), newndn(i)
-            enddo
+        !************************************************************************************************************
+        !  Initialize the distribution of spin-up and spin-down electrons
+        !************************************************************************************************************
+        print *, 'Initial electron distribution'
+        if (trial_index == number_of_trial_states) then
+            call initialize_electron_distribution_AFM(Nx, N, rho, nup, ndn)
+        else
+            call initialize_electron_distribution_stripe(Nx, N, rho, nup, ndn, trial_index)
         end if
         
-        ! Compute the free energy per site
-        call compute_free_energy(N, beta, mu, rho, U, evalup, evaldn, nup, ndn, Free_Energy)
-        write(70, "('it, F/N=', i6, f16.8)") it, Free_Energy
-        ! print '(i6, f12.6)', it, Free_Energy
+        !************************************************************************************************************
+        !  Set up the interacting part of the Hamiltonian
+        !************************************************************************************************************
+        ! print *, 'Edge pinning fields'
+        call set_up_interaction(Nx, Ny, N, U, pin_amplitude, nup, ndn, Hup, Hdn)
+        ! print *, 'The spin-up matrix'
+        ! do i = 1, 5
+        !     print *, Hup(i, :)
+        ! enddo
 
-        ! Add random noise on each site to speed up the convergence
-        if ((mod(it, 50) == 0) .and. (it < 2000)) then
-            call annealing(N, rho, annealing_amp, newnup, newndn)
-        endif
+        ! Initialize the chemical potential
+        mu = 0.0d0
+        write (68, "()") 
+        write (68, "()")
+        write (68, "('# of trial state = ', i6)") trial_index
+        write (68, "()")
+        write (68, "()")
 
-        call simple_mixing(N, relax, U, rho_relaxed, Hup, Hdn, nup, ndn, newnup, newndn)
-    enddo
+        write (70, "()") 
+        write (70, "()")
+        write (70, "('# of trial state = ', i6)") trial_index
+        write (70, "()")
+        write (70, "()")
+
+        !************************************************************************************************************
+        !  Solving the Hartree-Fock equations self-consistently
+        !************************************************************************************************************
+        do it = 1, Nit
+            ! print "(' iteration = ', i6)", it
+            INFO = 0
+
+            ! Copy the original Hamiltonian matrix and diagonalize it
+            call generate_matrix_copy(N, Hup, Hdn, Hupcopy, Hdncopy)
+            call DSYEV('V', 'U', N, Hupcopy, N, evalup, WORK, 6*N, INFO)
+            call DSYEV('V', 'U', N, Hdncopy, N, evaldn, WORK, 6*N, INFO)
+            ! print *, 'The eigenvalues of spin-up matrix'
+            ! print *, evalup
+
+            ! print *, 'The eigenvalues of spin-down matrix'
+            ! print *, evaldn
+            
+            ! Obtain the eigenvectors of the original Hamiltonian
+            do i=1,N
+                do j=1,N
+                    evecup(i,j)=Hupcopy(i,j)
+                    evecdn(i,j)=Hdncopy(i,j)
+                enddo
+            enddo
+            
+            call compute_energy(it, N, beta, mu, U, nup, ndn, evalup, evaldn, E)
+            call compute_density(N, beta, mu, evalup, evaldn, evecup, evecdn, newnup, newndn)
+            
+            mu_min = -10.0d0
+            mu_max =  10.0d0
+            mu_delta = 0.0d0
+            call chemical_potential_tuning(mu_min, mu_max, rho, tolerance, N, beta, mu, evalup, evaldn,& 
+            evecup, evecdn, mu_delta)
+            mu = mu + mu_delta
+            call compute_density(N, beta, mu, evalup, evaldn, evecup, evecdn, newnup, newndn)
+
+            ! Write temporary data e.g. energy per site & density histogram in the output file
+            write (68, "('it, E/N = ', i6, f16.8)") it, E/dfloat(N)
+            if (mod(50 * it, Nit) == 0) then
+                write (68, "()")
+                write (68, "(' old/new densities up and dn' )")
+                write (68, "(' iteration =  ', i6)") it
+                do i = 1, N
+                    write(68, "(i6, 2f12.6, 2f12.6)") i, nup(i), newnup(i), ndn(i), newndn(i)
+                enddo
+            end if
+            
+            ! Compute the free energy per site
+            call compute_free_energy(N, beta, mu, rho, U, evalup, evaldn, nup, ndn, Free_Energy)
+            write(70, "('it, F/N=', i6, f16.8)") it, Free_Energy
+            ! print '(i6, f12.6)', it, Free_Energy
+
+            ! Use annealing to speed up the convergen in the first half of calculation & use simple mixing for every step except for the last step
+            if (it /= Nit) then
+                ! Add random noise on each site to speed up the convergence
+                if ((mod(it, 50) == 0) .and. (it < 2000)) then
+                    call annealing(N, rho, annealing_amp, newnup, newndn)
+                endif
+
+                ! Add simple mixing with a coefficient \alpha
+                call simple_mixing(N, relax, U, rho_relaxed, Hup, Hdn, nup, ndn, newnup, newndn)
+            end if 
+        enddo
+    enddo 
 
     do i = 1, N
         write(69, '(i6, 2f12.6)') i, nup(i), ndn(i)
@@ -470,6 +417,35 @@ contains
             print '(i6, 2f12.6)', index, tmp_nup(index), tmp_ndn(index) 
         end do
     end subroutine initialize_electron_distribution_AFM
+
+
+    
+    
+    ! Initialize the distribution of spin-up and spin-down electron densities using a stripe pattern
+    subroutine initialize_electron_distribution_stripe(tmp_Nx, tmp_Nsites, density, tmp_nup, tmp_ndn, tmp_period)
+        integer :: index, i, j, tmp_shift
+        integer, intent(in) :: tmp_Nx, tmp_Nsites, tmp_period
+        real(kind=precision), intent(in) :: density
+        real(kind=precision), intent(out) :: tmp_nup(tmp_Nsites), tmp_ndn(tmp_Nsites)
+
+        do index = 1, tmp_Nsites
+            i = mod(index, tmp_Nx)
+            if (i == 0) then
+                i = tmp_Nx
+            end if
+            j = int((index - 1) / Nx + 1)
+            tmp_shift = int((index - 1) / tmp_period)
+
+            if (mod(i + j + tmp_shift, 2) == 0) then
+                tmp_nup(index) = 1.0d0 * density
+                tmp_ndn(index) = 0.0d0 * density
+            else
+                tmp_nup(index) = 0.0d0 * density
+                tmp_ndn(index) = 1.0d0 * density
+            end if 
+            print '(i6, 3f12.6)', index, tmp_nup(index), tmp_ndn(index), 0.5 * (tmp_nup(index) - tmp_ndn(index))
+        end do
+    end subroutine initialize_electron_distribution_stripe
 
 
     ! Set up the interacting part of the Hamiltonian and pinning fields etc.
